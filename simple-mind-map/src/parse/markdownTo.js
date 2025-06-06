@@ -3,32 +3,26 @@ import { fromMarkdown } from 'mdast-util-from-markdown'
 const getNodeText = node => {
   if (node.type === 'list') return '' // Lists are handled in transformMarkdownTo
   let textStr = ''
-  console.log('getNodeText processing node type:', node.type);
 
   ;(node.children || []).forEach((item, index, arr) => {
     if (['text', 'inlineCode'].includes(item.type)) {
       textStr += item.value || ''
-      console.log(`  Added text/inlineCode: "${item.value}"`);
       // Add a newline after text/inlineCode if it's not the last child
       if (index < arr.length - 1) {
          textStr += '\n';
-         console.log('  Added newline after text/inlineCode');
       }
     } else if (item.type === 'break') {
       textStr += '\n'
-      console.log('  Added newline for break node');
     } else {
       // Assume other types need recursive processing
-      console.log('  Recursively processing child node type:', item.type);
       textStr += getNodeText(item)
       // Add a newline after recursively processed children if not the last
       if (index < arr.length - 1) {
            textStr += '\n';
-           console.log('  Added newline after recursive child');
       }
     }
   })
-  console.log('getNodeText result:', JSON.stringify(textStr));
+
   return textStr
 }
 
@@ -97,11 +91,27 @@ export const transformMarkdownTo = md => {
       nodesToProcess.forEach(({ node: currentNode, depth: currentItemDepth }) => {
         // 创建新节点
         let newNode = {}
+        let nodeText = getNodeText(currentNode)
+        let processedText = nodeText
+        let isRichText = false
+
+        // 如果文本包含换行符，转换为富文本的p标签结构
+        if (nodeText.includes('\n')) {
+          isRichText = true
+          processedText = nodeText.split('\n').map(line => {
+            // 将空行转换为<p><br></p>以保留垂直间距
+            return line === '' ? '<p><br></p>' : `<p>${line}</p>`;
+          }).join('');
+        }
+
         newNode.data = {
           // 节点内容
-          text: getNodeText(currentNode)
+          text: processedText
         }
-        console.log('Created new node with text:', JSON.stringify(newNode.data.text));
+        // 如果标记为富文本，则设置richText属性
+        if (isRichText) {
+          newNode.data.richText = true
+        }
         newNode.children = []
 
         // 如果当前的层级大于上一个节点的层级，那么是其子节点
