@@ -5,13 +5,12 @@ const getNodeText = data => {
 }
 
 const getTitleMark = level => {
-  return new Array(level).fill('#').join('')
+  return '-'
 }
 
 const getIndentMark = level => {
-  return new Array(level - 6).fill('   ').join('') + '*'
+  return new Array(level - 1).fill('  ').join('') + '-'
 }
-
 // 转换成markdown格式
 export const transformToMarkdown = root => {
   let content = ''
@@ -20,11 +19,7 @@ export const transformToMarkdown = root => {
     null,
     (node, parent, isRoot, layerIndex) => {
       const level = layerIndex + 1
-      if (level <= 6) {
-        content += getTitleMark(level)
-      } else {
-        content += getIndentMark(level)
-      }
+      content += getIndentMark(level)
       content += ' ' + getNodeText(node.data)
       // 概要
       const generalization = node.data.generalization
@@ -34,12 +29,12 @@ export const transformToMarkdown = root => {
         })
       } else if (generalization && generalization.text) {
         const generalizationText = getNodeText(generalization)
-        content += ` [${generalizationText}]`
+      content += ` [${generalizationText}]`
       }
-      content += '\n\n'
+      content += '\n'
       // 备注
       if (node.data.note) {
-        content += node.data.note + '\n\n'
+        content += node.data.note + '\n'
       }
     },
     () => {},
