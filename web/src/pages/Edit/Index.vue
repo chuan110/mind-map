@@ -23,7 +23,8 @@ export default {
   },
   data() {
     return {
-      show: false
+      show: false,
+      pendingMarkdownContent: null
     }
   },
   computed: {
@@ -53,19 +54,15 @@ export default {
     const filePath = this.$route.params.filePath
     if (filePath) {
       try {
-        console.log('Markdown111111111111111111',filePath,this.$axios)
         const response = await this.$axios.get(`http://127.0.0.1:5010/read-file?path=${encodeURIComponent(filePath)}`)
         const markdownContent = response.data.content // 从响应中获取content字段
-        // 调用思维导图的 markdown 导入方法加载内容
-        // 需要将markdown转换为思维导图数据，然后调用setData
-        // 假设markdownToData方法存在于Edit组件中或者可以通过mindMap实例访问
-        // 在Edit.vue中查找markdownToData方法或类似功能
-        // 调用markdown导入方法加载内容
-        this.$bus.$emit('loadMarkdown', markdownContent)
+        
+        // 存储markdown内容，等待Edit组件准备好后再加载
+        this.pendingMarkdownContent = markdownContent
         this.show = true
-        console.log('Markdown content loaded:', markdownContent)
+        console.log('Index.vue created - Markdown content loaded:', markdownContent); // 添加日志
       } catch (error) {
-        console.error('Error reading markdown file:', error)
+        console.error('Index.vue created - Error reading markdown file:', error); // 添加日志
         this.$message.error('Failed to load markdown file.')
         // 如果加载失败，仍然显示页面，但内容为空或默认
         this.show = true
@@ -80,9 +77,43 @@ export default {
 },
   mounted() {
     console.log('Index.vue mounted');
+    console.log('Index.vue mounted - Listening for mindMapReady event'); // 添加日志
+    // 监听mindMapReady事件
+    this.$bus.$on('mindMapReady', this.handleMindMapReady);
   },
   methods: {
     ...mapMutations(['setLocalConfig']),
+
+    // 处理mindMapReady事件
+    handleMindMapReady() {
+      console.log('Index.vue handleMindMapReady called');
+      // 如果有待加载的markdown内容，确保Edit组件完全准备好
+      if (this.pendingMarkdownContent) {
+        const trySend = (attempt = 0) => {
+          if (attempt >= 5) {
+            console.error('Failed to send markdown after 5 attempts');
+            return;
+          }
+          
+          console.log(`Attempt ${attempt + 1} to send markdown content`);
+          this.$nextTick(() => {
+            setTimeout(() => {
+              // 检查mindMap是否已初始化完成
+              if (this.$bus._events['mindMapReady'] && 
+                  this.$bus._events['loadMarkdown']) {
+                console.log('Index.vue - MindMap and handlers ready, emitting loadMarkdown');
+                this.$bus.$emit('loadMarkdown', this.pendingMarkdownContent);
+                this.pendingMarkdownContent = null;
+              } else {
+                console.log('Index.vue - MindMap not ready yet, retrying...');
+                trySend(attempt + 1);
+              }
+            }, 200); // 增加延迟时间
+          });
+        };
+        trySend();
+      }
+    },
 
     // 初始化本地配置
     initLocalConfig() {

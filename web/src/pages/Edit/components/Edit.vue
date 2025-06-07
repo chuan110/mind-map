@@ -88,6 +88,7 @@ import OuterFrame from 'simple-mind-map/src/plugins/OuterFrame.js'
 import MindMapLayoutPro from 'simple-mind-map/src/plugins/MindMapLayoutPro.js'
 import NodeBase64ImageStorage from 'simple-mind-map/src/plugins/NodeBase64ImageStorage.js'
 import Themes from 'simple-mind-map-plugin-themes'
+import markdown from 'simple-mind-map/src/parse/markdown.js'
 // 协同编辑插件
 // import Cooperate from 'simple-mind-map/src/plugins/Cooperate.js'
 import OutlineSidebar from './OutlineSidebar.vue'
@@ -195,7 +196,8 @@ export default {
       mindMapConfig: {},
       prevImg: '',
       storeConfigTimer: null,
-      showDragMask: false
+      showDragMask: false,
+      isMarkdownLoaded: false // 标记Markdown是否已加载
     }
   },
   computed: {
@@ -231,6 +233,7 @@ export default {
     showLoading()
     this.getData()
     this.init()
+    this.$bus.$emit('mindMapReady'); // 发送mindMapReady事件
     this.$bus.$on('execCommand', this.execCommand)
     this.$bus.$on('paddingChange', this.onPaddingChange)
     this.$bus.$on('export', this.export)
@@ -267,9 +270,37 @@ export default {
   methods: {
     // 处理加载markdown事件
     handleLoadMarkdown(markdownContent) {
-      if (this.mindMap) {
-        this.mindMap.execCommand('importMarkdown', markdownContent)
-      }
+      console.log('Edit.vue handleLoadMarkdown called with:', markdownContent);
+      
+      const tryImport = (attempt = 0) => {
+        if (attempt >= 5) {
+          console.error('Failed to import markdown after 5 attempts');
+          this.$message.error('Failed to load markdown content');
+          return;
+        }
+
+        if (!this.mindMap) {
+          console.warn(`Edit.vue - MindMap not ready (attempt ${attempt + 1}), retrying...`);
+          setTimeout(() => tryImport(attempt + 1), 300);
+          return;
+        }
+
+        try {
+          console.log('Edit.vue - Importing markdown content');
+          // 使用transformMarkdownTo转换markdown内容
+          const data = markdown.transformMarkdownTo(markdownContent);
+          // 通过setData设置转换后的数据
+          this.$bus.$emit('setData', data);
+          this.isMarkdownLoaded = true;
+          console.log('Edit.vue - Markdown imported successfully');
+          this.mindMap.reRender();
+        } catch (error) {
+          console.error('Edit.vue - Error importing markdown:', error);
+          setTimeout(() => tryImport(attempt + 1), 300);
+        }
+      };
+
+      tryImport();
     },
 
     onLocalStorageExceeded() {
@@ -352,7 +383,12 @@ export default {
               console.warn('MindMap or Export plugin not ready yet, skipping save');
               return;
             }
+
             const markdownContent = await this.mindMap.doExport.markdown(); // 直接调用markdown方法获取字符串
+            if(!this.isMarkdownLoaded){
+              console.warn('isMarkdownLoaded false',markdownContent);
+              return;
+            }
             if (typeof markdownContent !== 'string') {
               console.error('Failed to export markdown: Invalid export result', markdownContent);
               this.$message.error('Failed to export markdown.');
@@ -365,7 +401,7 @@ export default {
             console.log("jsondata",jsondata)
             // 通过本地服务器保存文件
             await this.$axios.post('http://127.0.0.1:5010/save-file', jsondata)
-            console.log('Markdown file saved successfully:', filePath)
+            console.log('Markdown file saved successfully:', markdownContent)
           } catch (error) {
             console.error('Error saving markdown file:', error)
             this.$message.error('Failed to save markdown file.')
