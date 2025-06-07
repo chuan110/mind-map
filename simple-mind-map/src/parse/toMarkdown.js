@@ -28,29 +28,13 @@ export const transformToMarkdown = root => {
     null,
     (node, parent, isRoot, layerIndex) => {
       const level = layerIndex + 1
-      
-      // 确保每个节点都在新行开始（除了第一个节点）
       if (content && !content.endsWith('\n')) {
         content += '\n';
       }
       
       content += getIndentMark(level)
       content += ' ' + getNodeText(node.data, level)
-      // 概要
-      const generalization = node.data.generalization
-      if (Array.isArray(generalization)) {
-        content += generalization.map(item => {
-          return ` [${getNodeText(item)}]`
-        })
-      } else if (generalization && generalization.text) {
-        const generalizationText = getNodeText(generalization)
-      content += ` [${generalizationText}]`
-      }
-
-      // 备注
-      if (node.data.note) {
-        content += '\n' + getIndentMark(level) + ' ' + node.data.note;
-      }
+      console.log("debug content1",level,node.data);
     },
     () => {},
     true
