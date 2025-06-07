@@ -244,9 +244,11 @@ export default {
     this.$bus.$on('localStorageExceeded', this.onLocalStorageExceeded)
     window.addEventListener('resize', this.handleResize)
     this.$bus.$on('showDownloadTip', this.showDownloadTip)
+    this.$bus.$on('loadMarkdown', this.handleLoadMarkdown) // 监听loadMarkdown事件
     this.webTip()
   },
   beforeDestroy() {
+    this.$bus.$off('loadMarkdown', this.handleLoadMarkdown) // 移除事件监听
     this.$bus.$off('execCommand', this.execCommand)
     this.$bus.$off('paddingChange', this.onPaddingChange)
     this.$bus.$off('export', this.export)
@@ -263,6 +265,13 @@ export default {
     this.mindMap.destroy()
   },
   methods: {
+    // 处理加载markdown事件
+    handleLoadMarkdown(markdownContent) {
+      if (this.mindMap) {
+        this.mindMap.execCommand('importMarkdown', markdownContent)
+      }
+    },
+
     onLocalStorageExceeded() {
       this.$notify({
         type: 'warning',
@@ -308,14 +317,62 @@ export default {
 
     // 获取思维导图数据，实际应该调接口获取
     getData() {
-      this.mindMapData = getData()
-      this.mindMapConfig = getConfig() || {}
+      // 如果是通过md路由打开文件，不使用本地数据
+      const filePath = this.$route.params.filePath
+      if (filePath) {
+        // 使用默认数据结构，等待markdown文件加载
+        this.mindMapData = {
+          root: {
+            data: {
+              text: this.$t('edit.root')
+            },
+            children: []
+          },
+          layout: null,
+          theme: null,
+          view: null
+        }
+        this.mindMapConfig = {}
+      } else {
+        this.mindMapData = getData()
+        this.mindMapConfig = getConfig() || {}
+      }
     },
 
     // 存储数据当数据有变时
     bindSaveEvent() {
-      this.$bus.$on('data_change', data => {
-        storeData({ root: data })
+      this.$bus.$on('data_change', async data => {
+        // 只有当通过md路由打开文件时才保存到本地文件
+        // 只有当通过md路由打开文件时才保存到本地文件
+        const filePath = this.$route.params.filePath
+        if (filePath) {
+          try {
+            // 检查 mindMap 和 doExport 是否存在
+            if (!this.mindMap || !this.mindMap.doExport) {
+              console.warn('MindMap or Export plugin not ready yet, skipping save');
+              return;
+            }
+            const markdownContent = await this.mindMap.doExport.markdown(); // 直接调用markdown方法获取字符串
+            if (typeof markdownContent !== 'string') {
+              console.error('Failed to export markdown: Invalid export result', markdownContent);
+              this.$message.error('Failed to export markdown.');
+              return;
+            }
+            var jsondata={
+              filePath: filePath,
+              content: markdownContent,
+            }
+            console.log("jsondata",jsondata)
+            // 通过本地服务器保存文件
+            await this.$axios.post('http://127.0.0.1:5010/save-file', jsondata)
+            console.log('Markdown file saved successfully:', filePath)
+          } catch (error) {
+            console.error('Error saving markdown file:', error)
+            this.$message.error('Failed to save markdown file.')
+          }
+        } else {
+           storeData({ root: data })
+        }
       })
       this.$bus.$on('view_data_change', data => {
         clearTimeout(this.storeConfigTimer)
@@ -511,8 +568,10 @@ export default {
     // url中是否存在要打开的文件
     hasFileURL() {
       const fileURL = this.$route.query.fileURL
-      if (!fileURL) return false
-      return /\.(smm|json|xmind|md|xlsx)$/.test(fileURL)
+      const filePath = this.$route.params.filePath
+      if (!fileURL && !filePath) return false
+      const targetFile = fileURL || filePath
+      return /\.(smm|json|xmind|md|xlsx)$/.test(targetFile)
     },
 
     // 动态设置思维导图数据

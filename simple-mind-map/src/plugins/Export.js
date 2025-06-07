@@ -445,6 +445,13 @@ class Export {
     return res
   }
 
+  // markdown内容（返回字符串而不是blob）
+  async markdown() {
+    const data = this.mindMap.getData()
+    const content = transformToMarkdown(data)
+    return content
+  }
+
   // txt文件
   async txt() {
     const data = this.mindMap.getData()

@@ -9,12 +9,14 @@ import 'viewerjs/dist/viewer.css'
 import VueViewer from 'v-viewer'
 import i18n from './i18n'
 import { getLang } from '@/api'
+import axios from 'axios'
 // import VConsole from 'vconsole'
 // const vConsole = new VConsole()
 
 Vue.config.productionTip = false
 const bus = new Vue()
 Vue.prototype.$bus = bus
+Vue.prototype.$axios = axios
 Vue.use(ElementUI)
 Vue.use(VueViewer)
 

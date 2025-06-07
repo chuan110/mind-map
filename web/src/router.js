@@ -16,6 +16,14 @@ const routes = [
   {
     path: '/doc/zh',
     component: () => import(`./pages/Doc.vue`)
+  },
+  {
+    path: '/md/:filePath',
+    name: 'md-edit',
+    component: () => {
+      console.log('Router matched /md/:filePath');
+      return import(`./pages/Edit/Index.vue`);
+    }
   }
 ]
 

@@ -38,15 +38,48 @@ export default {
       this.setBodyDark()
     }
   },
+  beforeCreate() {
+    console.log('Index.vue beforeCreate');
+  },
   async created() {
+    console.log('Index.vue created');
     this.initLocalConfig()
     const loading = this.$loading({
       lock: true,
       text: this.$t('other.loading')
     })
-    this.show = true
+
+    console.log('Markdown00000')
+    const filePath = this.$route.params.filePath
+    if (filePath) {
+      try {
+        console.log('Markdown111111111111111111',filePath,this.$axios)
+        const response = await this.$axios.get(`http://127.0.0.1:5010/read-file?path=${encodeURIComponent(filePath)}`)
+        const markdownContent = response.data.content // 从响应中获取content字段
+        // 调用思维导图的 markdown 导入方法加载内容
+        // 需要将markdown转换为思维导图数据，然后调用setData
+        // 假设markdownToData方法存在于Edit组件中或者可以通过mindMap实例访问
+        // 在Edit.vue中查找markdownToData方法或类似功能
+        // 调用markdown导入方法加载内容
+        this.$bus.$emit('loadMarkdown', markdownContent)
+        this.show = true
+        console.log('Markdown content loaded:', markdownContent)
+      } catch (error) {
+        console.error('Error reading markdown file:', error)
+        this.$message.error('Failed to load markdown file.')
+        // 如果加载失败，仍然显示页面，但内容为空或默认
+        this.show = true
+      }
+    }
+    // 如果没有filePath，正常加载数据
+    if (!filePath) {
+      this.show = true
+    }
     loading.close()
     this.setBodyDark()
+},
+  mounted() {
+    console.log('Index.vue mounted');
   },
   methods: {
     ...mapMutations(['setLocalConfig']),
