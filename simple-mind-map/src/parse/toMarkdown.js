@@ -31,10 +31,8 @@ export const transformToMarkdown = root => {
       if (content && !content.endsWith('\n')) {
         content += '\n';
       }
-      
-      content += getIndentMark(level)
-      content += ' ' + getNodeText(node.data, level)
-      console.log("debug content1",level,node.data);
+      content += getIndentMark(level);
+      content += ' ' + getNodeText(node.data, level).trimEnd();
     },
     () => {},
     true
